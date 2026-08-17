@@ -5,6 +5,7 @@ import com.churchsong.model.Song;
 import com.churchsong.repository.PlaylistRepository;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -50,6 +51,96 @@ public class PlaylistLibrary {
 
         return playlistRepository.findById(id)
                 .orElse(null);
+    }
+
+    public Playlist createSavedServicePlaylist(
+            String name,
+            String requestedServiceDate,
+            String theme) {
+        Playlist playlist = new Playlist(
+                normalizeNewPlaylistName(name));
+
+        playlist.setReusable(false);
+        playlist.setServiceDate(
+                parseRequiredServiceDate(
+                        requestedServiceDate));
+        playlist.setTheme(theme);
+
+        return playlistRepository.save(playlist);
+    }
+
+    @Transactional
+    public Playlist copyPlaylistForService(
+            Long sourcePlaylistId,
+            String name,
+            String requestedServiceDate,
+            String theme) {
+        Playlist sourcePlaylist =
+                findPlaylistById(sourcePlaylistId);
+
+        if (sourcePlaylist == null) {
+            throw new IllegalArgumentException(
+                    "source playlist does not exist.");
+        }
+
+        Playlist copiedPlaylist =
+                createSavedServicePlaylist(
+                        name,
+                        requestedServiceDate,
+                        theme);
+
+        copiedPlaylist.setSourcePlaylistId(
+                sourcePlaylist.getId());
+        copiedPlaylist.replaceSongs(
+                sourcePlaylist.getSongs());
+
+        return playlistRepository.save(copiedPlaylist);
+    }
+
+    @Transactional
+    public Playlist updatePlaylistMetadata(
+            Long playlistId,
+            String name,
+            String requestedServiceDate,
+            String theme) {
+        Playlist playlist = findPlaylistById(playlistId);
+
+        if (playlist == null) {
+            return null;
+        }
+
+        String normalizedName = normalizeName(name);
+        Playlist existingPlaylist =
+                findPlaylistByName(normalizedName);
+
+        if (existingPlaylist != null
+                && !existingPlaylist.getId()
+                        .equals(playlist.getId())) {
+            throw new IllegalArgumentException(
+                    "A playlist with this name already exists.");
+        }
+
+        playlist.setName(normalizedName);
+        playlist.setServiceDate(
+                playlist.isReusable()
+                        ? parseOptionalServiceDate(
+                                requestedServiceDate)
+                        : parseRequiredServiceDate(
+                                requestedServiceDate));
+        playlist.setTheme(theme);
+
+        return playlistRepository.save(playlist);
+    }
+
+    public boolean removePlaylistById(Long playlistId) {
+        Playlist playlist = findPlaylistById(playlistId);
+
+        if (playlist == null) {
+            return false;
+        }
+
+        playlistRepository.delete(playlist);
+        return true;
     }
 
     public boolean removePlaylistByName(String name) {
@@ -153,6 +244,7 @@ public class PlaylistLibrary {
                 .orElse(null);
     }
 
+    @Transactional
     public Playlist usePlaylistForTodayService(
             Long sourcePlaylistId,
             String requestedName,
@@ -217,6 +309,7 @@ public class PlaylistLibrary {
                         requestedServiceDate));
     }
 
+    @Transactional
     public Playlist addSongToPlaylist(
             Playlist playlist,
             Song song) {
@@ -233,12 +326,16 @@ public class PlaylistLibrary {
             );
         }
 
-        playlist.addSong(song);
+        Playlist managedPlaylist =
+                getManagedPlaylist(playlist);
+
+        managedPlaylist.addSong(song);
 
         return playlistRepository.save(
-                playlist);
+                managedPlaylist);
     }
 
+    @Transactional
     public Playlist removeSongFromPlaylist(
             Playlist playlist,
             Song song) {
@@ -255,12 +352,16 @@ public class PlaylistLibrary {
             );
         }
 
-        playlist.removeSong(song);
+        Playlist managedPlaylist =
+                getManagedPlaylist(playlist);
+
+        managedPlaylist.removeSong(song);
 
         return playlistRepository.save(
-                playlist);
+                managedPlaylist);
     }
 
+    @Transactional
     public Playlist moveSong(
             Playlist playlist,
             int fromIndex,
@@ -272,12 +373,33 @@ public class PlaylistLibrary {
             );
         }
 
-        playlist.moveSong(
+        Playlist managedPlaylist =
+                getManagedPlaylist(playlist);
+
+        managedPlaylist.moveSong(
                 fromIndex,
                 toIndex);
 
         return playlistRepository.save(
-                playlist);
+                managedPlaylist);
+    }
+
+    private Playlist getManagedPlaylist(
+            Playlist playlist) {
+        if (playlist.getId() == null) {
+            throw new IllegalArgumentException(
+                    "playlist must have an ID.");
+        }
+
+        Playlist managedPlaylist =
+                findPlaylistById(playlist.getId());
+
+        if (managedPlaylist == null) {
+            throw new IllegalArgumentException(
+                    "playlist does not exist.");
+        }
+
+        return managedPlaylist;
     }
 
     private void validatePlaylist(
@@ -330,6 +452,43 @@ public class PlaylistLibrary {
                     "serviceDate must use YYYY-MM-DD."
             );
         }
+    }
+
+    private LocalDate parseRequiredServiceDate(
+            String requestedServiceDate) {
+        if (requestedServiceDate == null
+                || requestedServiceDate.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "serviceDate cannot be null or empty.");
+        }
+
+        try {
+            return LocalDate.parse(requestedServiceDate.trim());
+        } catch (DateTimeParseException exception) {
+            throw new IllegalArgumentException(
+                    "serviceDate must use YYYY-MM-DD.");
+        }
+    }
+
+    private LocalDate parseOptionalServiceDate(
+            String requestedServiceDate) {
+        if (requestedServiceDate == null
+                || requestedServiceDate.trim().isEmpty()) {
+            return null;
+        }
+
+        return parseRequiredServiceDate(requestedServiceDate);
+    }
+
+    private String normalizeNewPlaylistName(String name) {
+        String normalizedName = normalizeName(name);
+
+        if (findPlaylistByName(normalizedName) != null) {
+            throw new IllegalArgumentException(
+                    "A playlist with this name already exists.");
+        }
+
+        return normalizedName;
     }
 
     private String normalizeWorkingPlaylistName(

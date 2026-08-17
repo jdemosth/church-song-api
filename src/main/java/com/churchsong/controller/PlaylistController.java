@@ -1,6 +1,9 @@
 package com.churchsong.controller;
 
+import com.churchsong.dto.CopyPlaylistRequest;
+import com.churchsong.dto.PlaylistMetadataRequest;
 import com.churchsong.dto.PlaylistRequest;
+import com.churchsong.dto.SavedServicePlaylistRequest;
 import com.churchsong.dto.UseForTodayServiceRequest;
 import com.churchsong.model.Playlist;
 import com.churchsong.model.Song;
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -48,6 +52,12 @@ public class PlaylistController {
         return playlistLibrary.findPlaylistByName(name);
     }
 
+    @GetMapping("/playlists/{playlistId}")
+    public Playlist getPlaylistById(
+            @PathVariable Long playlistId) {
+        return playlistLibrary.findPlaylistById(playlistId);
+    }
+
     @PostMapping("/playlists")
     public Playlist addPlaylist(
             @RequestBody PlaylistRequest request) {
@@ -58,6 +68,28 @@ public class PlaylistController {
         playlistLibrary.addPlaylist(playlist);
 
         return playlist;
+    }
+
+    @PostMapping("/playlists/saved-service")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Playlist createSavedServicePlaylist(
+            @RequestBody SavedServicePlaylistRequest request) {
+        return playlistLibrary.createSavedServicePlaylist(
+                request.getName(),
+                request.getServiceDate(),
+                request.getTheme());
+    }
+
+    @PostMapping("/playlists/{sourcePlaylistId}/copy")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Playlist copyPlaylistForService(
+            @PathVariable Long sourcePlaylistId,
+            @RequestBody CopyPlaylistRequest request) {
+        return playlistLibrary.copyPlaylistForService(
+                sourcePlaylistId,
+                request.getName(),
+                request.getServiceDate(),
+                request.getTheme());
     }
 
     @PostMapping("/playlists/{playlistId}/use-for-today-service")
@@ -101,12 +133,29 @@ public class PlaylistController {
         );
     }
 
+    @PutMapping("/playlists/{playlistId}/metadata")
+    public Playlist updatePlaylistMetadata(
+            @PathVariable Long playlistId,
+            @RequestBody PlaylistMetadataRequest request) {
+        return playlistLibrary.updatePlaylistMetadata(
+                playlistId,
+                request.getName(),
+                request.getServiceDate(),
+                request.getTheme());
+    }
+
     @DeleteMapping("/playlists")
     public boolean deletePlaylist(
             @RequestParam String name) {
 
         return playlistLibrary
                 .removePlaylistByName(name);
+    }
+
+    @DeleteMapping("/playlists/{playlistId}")
+    public boolean deletePlaylistById(
+            @PathVariable Long playlistId) {
+        return playlistLibrary.removePlaylistById(playlistId);
     }
 
     @PostMapping("/playlists/{playlistName}/songs/{songId}")

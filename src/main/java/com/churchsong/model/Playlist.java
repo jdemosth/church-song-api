@@ -21,6 +21,7 @@ public class Playlist {
     private String name;
     private Boolean reusable;
     private LocalDate serviceDate;
+    private String theme;
     private Long sourcePlaylistId;
 
     @ManyToMany
@@ -61,6 +62,19 @@ public class Playlist {
 
     public void setServiceDate(LocalDate serviceDate) {
         this.serviceDate = serviceDate;
+    }
+
+    public String getTheme() {
+        return theme;
+    }
+
+    public void setTheme(String theme) {
+        if (theme == null || theme.trim().isEmpty()) {
+            this.theme = null;
+            return;
+        }
+
+        this.theme = theme.trim();
     }
 
     public Long getSourcePlaylistId() {

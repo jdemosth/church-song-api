@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -150,17 +152,17 @@ class ServicePlanLibraryTests {
 
                     servicePlanLibrary.createServicePlan(
                             "Past Rehearsal",
-                            "2026-08-13",
+                            "2000-08-13",
                             "19:00",
                             List.of());
                     servicePlanLibrary.createServicePlan(
                             "Sunday Morning",
-                            "2026-08-16",
+                            "2099-08-16",
                             "09:00",
                             List.of());
                     servicePlanLibrary.createServicePlan(
                             "Friday Prayer",
-                            "2026-08-14",
+                            "2099-08-14",
                             "18:00",
                             List.of());
 
@@ -211,7 +213,7 @@ class ServicePlanLibraryTests {
 
                     servicePlanLibrary.createServicePlan(
                             "Restart Check",
-                            "2026-08-17",
+                            "2099-08-17",
                             "18:30",
                             List.of(song));
                 });
@@ -262,13 +264,17 @@ class ServicePlanLibraryTests {
         try (ConfigurableApplicationContext context =
                      new SpringApplicationBuilder(
                              ChurchSongApiApplication.class)
-                             .properties(
-                                     "spring.datasource.url=jdbc:sqlite:" + databaseFile,
-                                     "spring.jpa.hibernate.ddl-auto=update",
-                                     "spring.sql.init.mode=always",
-                                     "spring.main.banner-mode=off")
-                             .run()) {
-            testBody.accept(context);
+                             .run(
+                                     "--spring.datasource.url=jdbc:sqlite:" + databaseFile,
+                                     "--spring.jpa.hibernate.ddl-auto=update",
+                                     "--spring.sql.init.mode=always",
+                                     "--spring.main.banner-mode=off",
+                                     "--spring.main.web-application-type=none")) {
+            new TransactionTemplate(
+                    context.getBean(
+                            PlatformTransactionManager.class))
+                    .executeWithoutResult(
+                            status -> testBody.accept(context));
         }
     }
 
