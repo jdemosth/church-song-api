@@ -2,6 +2,7 @@ package com.churchsong.controller;
 
 import com.churchsong.dto.SongRequest;
 import com.churchsong.model.Song;
+import com.churchsong.model.SongLanguage;
 import com.churchsong.service.SongLibrary;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -47,10 +48,12 @@ public class SongController {
     public Song addSong(@RequestBody SongRequest request) {
 
         Song song = new Song(
+                request.getFamilyId(),
                 request.getTitle(),
                 request.getAuthor(),
                 request.getLyrics(),
-                request.getSongType()
+                request.getSongType(),
+                request.getLanguage()
         );
 
         songLibrary.addSong(song);
@@ -73,6 +76,10 @@ public class SongController {
         song.setAuthor(request.getAuthor());
         song.setLyrics(request.getLyrics());
         song.setSongType(request.getSongType());
+        song.setFamilyId(request.getFamilyId());
+        song.setLanguage(request.getLanguage() == null
+                ? SongLanguage.UNKNOWN
+                : request.getLanguage());
 
         return songLibrary.updateSong(song);
     }
