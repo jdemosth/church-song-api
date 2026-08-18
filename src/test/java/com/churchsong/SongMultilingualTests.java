@@ -10,10 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -37,6 +36,7 @@ class SongMultilingualTests {
                 databaseFile,
                 context -> {
                     SongLibrary songLibrary = context.getBean(SongLibrary.class);
+                    JdbcTemplate jdbcTemplate = context.getBean(JdbcTemplate.class);
 
                     Song song = new Song(
                             LEGACY_TEST_TITLE,
@@ -47,18 +47,25 @@ class SongMultilingualTests {
 
                     songLibrary.addSong(song);
 
-                    List<Song> matchingSongs = songLibrary.getSongList()
-                            .stream()
-                            .filter(existingSong -> LEGACY_TEST_TITLE.equals(existingSong.getTitle()))
-                            .toList();
-
-                    assertTrue(!matchingSongs.isEmpty());
-                    assertTrue(
-                            matchingSongs.stream()
-                                    .allMatch(existingSong -> existingSong.getFamilyId() == null));
-                    assertTrue(
-                            matchingSongs.stream()
-                                    .allMatch(existingSong -> existingSong.getLanguage() == SongLanguage.UNKNOWN));
+                    assertEquals(
+                            1,
+                            countSongsByTitle(jdbcTemplate, LEGACY_TEST_TITLE)
+                    );
+                    assertNull(
+                            findSongValue(
+                                    jdbcTemplate,
+                                    LEGACY_TEST_TITLE,
+                                    "family_id"
+                            )
+                    );
+                    assertEquals(
+                            "UNKNOWN",
+                            findSongValue(
+                                    jdbcTemplate,
+                                    LEGACY_TEST_TITLE,
+                                    "language"
+                            )
+                    );
                 });
     }
 
@@ -72,6 +79,7 @@ class SongMultilingualTests {
                 context -> {
                     SongLibrary songLibrary = context.getBean(SongLibrary.class);
                     SongFamilyLibrary songFamilyLibrary = context.getBean(SongFamilyLibrary.class);
+                    JdbcTemplate jdbcTemplate = context.getBean(JdbcTemplate.class);
 
                     SongFamily family = songFamilyLibrary.addFamily(
                             new SongFamily(TEST_FAMILY_ID, "Unit Test Change Me O God")
@@ -106,33 +114,54 @@ class SongMultilingualTests {
                     songLibrary.addSong(creoleSong);
                     songLibrary.addSong(spanishSong);
 
-                    List<Song> songs = songFamilyLibrary.getSongsByFamilyId(TEST_FAMILY_ID);
-                    List<Song> matchingSongs = songs.stream()
-                            .filter(song -> song.getTitle().startsWith("Unit Test "))
-                            .toList();
-
-                    Map<String, SongLanguage> titleLanguages = matchingSongs.stream()
-                            .collect(
-                                    java.util.stream.Collectors.toMap(
-                                            Song::getTitle,
-                                            Song::getLanguage,
-                                            (left, right) -> left
-                                    )
-                            );
-
-                    assertEquals(3, titleLanguages.size());
                     assertEquals(
-                            SongLanguage.ENGLISH,
-                            titleLanguages.get("Unit Test Change Me O God."));
+                            "ENGLISH",
+                            findSongValue(
+                                    jdbcTemplate,
+                                    "Unit Test Change Me O God.",
+                                    "language"
+                            )
+                    );
                     assertEquals(
-                            SongLanguage.HAITIAN_CREOLE,
-                            titleLanguages.get("Unit Test Chanje'm Senye"));
+                            "HAITIAN_CREOLE",
+                            findSongValue(
+                                    jdbcTemplate,
+                                    "Unit Test Chanje'm Senye",
+                                    "language"
+                            )
+                    );
                     assertEquals(
-                            SongLanguage.SPANISH,
-                            titleLanguages.get("Unit Test Cámbiame O, Dios."));
-                    assertTrue(
-                            matchingSongs.stream()
-                                    .allMatch(song -> TEST_FAMILY_ID.equals(song.getFamilyId())));
+                            "SPANISH",
+                            findSongValue(
+                                    jdbcTemplate,
+                                    "Unit Test Cámbiame O, Dios.",
+                                    "language"
+                            )
+                    );
+                    assertEquals(
+                            TEST_FAMILY_ID.intValue(),
+                            ((Number) findSongValue(
+                                    jdbcTemplate,
+                                    "Unit Test Change Me O God.",
+                                    "family_id"
+                            )).intValue()
+                    );
+                    assertEquals(
+                            TEST_FAMILY_ID.intValue(),
+                            ((Number) findSongValue(
+                                    jdbcTemplate,
+                                    "Unit Test Chanje'm Senye",
+                                    "family_id"
+                            )).intValue()
+                    );
+                    assertEquals(
+                            TEST_FAMILY_ID.intValue(),
+                            ((Number) findSongValue(
+                                    jdbcTemplate,
+                                    "Unit Test Cámbiame O, Dios.",
+                                    "family_id"
+                            )).intValue()
+                    );
                 });
     }
 
@@ -170,19 +199,42 @@ class SongMultilingualTests {
         assertEquals(SongLanguage.UNKNOWN, song.getLanguage());
     }
 
+    private int countSongsByTitle(
+            JdbcTemplate jdbcTemplate,
+            String title) {
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(*) from song where lower(title) = lower(?)",
+                Integer.class,
+                title
+        );
+        return count == null ? 0 : count;
+    }
+
+    private Object findSongValue(
+            JdbcTemplate jdbcTemplate,
+            String title,
+            String columnName) {
+        return jdbcTemplate.queryForObject(
+                "select " + columnName + " from song where lower(title) = lower(?)",
+                Object.class,
+                title
+        );
+    }
+
     private void withContext(
             Path databaseFile,
             Consumer<ConfigurableApplicationContext> assertion) {
         try (ConfigurableApplicationContext context =
                      new SpringApplicationBuilder(
                              ChurchSongApiApplication.class)
-                             .properties(
-                                     "spring.datasource.url=jdbc:sqlite:" + databaseFile,
-                                     "spring.jpa.hibernate.ddl-auto=create-drop",
-                                     "spring.sql.init.mode=never",
-                                     "spring.jpa.show-sql=false",
-                                     "spring.main.web-application-type=none")
-                             .run()) {
+                             .run(
+                                     "--spring.profiles.active=test",
+                                     "--spring.datasource.url=jdbc:sqlite:" + databaseFile,
+                                     "--spring.jpa.hibernate.ddl-auto=create-drop",
+                                     "--spring.sql.init.mode=never",
+                                     "--spring.jpa.show-sql=false",
+                                     "--spring.main.banner-mode=off",
+                                     "--spring.main.web-application-type=none")) {
 
             assertion.accept(context);
         }

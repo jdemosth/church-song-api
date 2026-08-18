@@ -1,23 +1,27 @@
 package com.churchsong.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Column;
 
 @Entity
 public class Song {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(columnDefinition = "integer")
     private Integer id;
 
     private Integer familyId;
     private String title;
     private String author;
     private String lyrics;
+    private String sourceUrl;
 
     @Enumerated(EnumType.STRING)
     private SongType songType;
@@ -40,6 +44,7 @@ public class Song {
                 title,
                 author,
                 lyrics,
+                null,
                 songType,
                 SongLanguage.UNKNOWN
         );
@@ -50,6 +55,7 @@ public class Song {
             String title,
             String author,
             String lyrics,
+            String sourceUrl,
             SongType songType,
             SongLanguage language) {
 
@@ -57,8 +63,27 @@ public class Song {
         setTitle(title);
         setAuthor(author);
         setLyrics(lyrics);
+        setSourceUrl(sourceUrl);
         setSongType(songType);
         setLanguage(language);
+    }
+
+    public Song(
+            Integer familyId,
+            String title,
+            String author,
+            String lyrics,
+            SongType songType,
+            SongLanguage language) {
+        this(
+                familyId,
+                title,
+                author,
+                lyrics,
+                null,
+                songType,
+                language
+        );
     }
 
     public Integer getId() {
@@ -83,6 +108,11 @@ public class Song {
 
     public String getLyrics() {
         return lyrics;
+    }
+
+    @JsonIgnore
+    public String getSourceUrl() {
+        return sourceUrl;
     }
 
     public SongLanguage getLanguage() {
@@ -111,6 +141,24 @@ public class Song {
         this.lyrics = lyrics;
     }
 
+    public void setSourceUrl(String sourceUrl) {
+        if (sourceUrl == null || sourceUrl.trim().isEmpty()) {
+            this.sourceUrl = null;
+            return;
+        }
+
+        sourceUrl = sourceUrl.trim();
+
+        if (!sourceUrl.startsWith("http://")
+                && !sourceUrl.startsWith("https://")) {
+            throw new IllegalArgumentException(
+                    "sourceUrl must start with http:// or https://."
+            );
+        }
+
+        this.sourceUrl = sourceUrl;
+    }
+
     public void setTitle(String title) {
         if (title != null) {
             title = title.trim();
@@ -136,12 +184,6 @@ public class Song {
     }
 
     public void setSongType(SongType songType) {
-        if (songType == null) {
-            throw new IllegalArgumentException(
-                    "songType cannot be null."
-            );
-        }
-
         this.songType = songType;
     }
 

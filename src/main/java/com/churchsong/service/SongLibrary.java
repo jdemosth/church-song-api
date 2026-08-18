@@ -7,6 +7,7 @@ import com.churchsong.repository.SongRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class SongLibrary {
@@ -74,7 +75,10 @@ public class SongLibrary {
             );
         }
 
-        return songRepository.findBySongType(songType);
+        return songRepository.findBySongType(songType)
+                .stream()
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     public boolean removeSongById(int id) {
@@ -112,7 +116,10 @@ public class SongLibrary {
     }
 
     public List<Song> getSongList() {
-        return songRepository.findAll();
+        return songRepository.findAll()
+                .stream()
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private void validateSong(Song song) {

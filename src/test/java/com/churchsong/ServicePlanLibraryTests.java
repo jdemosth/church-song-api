@@ -265,6 +265,7 @@ class ServicePlanLibraryTests {
                      new SpringApplicationBuilder(
                              ChurchSongApiApplication.class)
                              .run(
+                                     "--spring.profiles.active=test",
                                      "--spring.datasource.url=jdbc:sqlite:" + databaseFile,
                                      "--spring.jpa.hibernate.ddl-auto=update",
                                      "--spring.sql.init.mode=always",

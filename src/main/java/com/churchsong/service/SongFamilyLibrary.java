@@ -7,6 +7,7 @@ import com.churchsong.repository.SongRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class SongFamilyLibrary {
@@ -59,7 +60,10 @@ public class SongFamilyLibrary {
             );
         }
 
-        return songRepository.findByFamilyId(familyId);
+        return songRepository.findByFamilyId(familyId)
+                .stream()
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private void validateSongFamily(SongFamily songFamily) {

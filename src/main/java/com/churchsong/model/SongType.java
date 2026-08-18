@@ -1,4 +1,4 @@
-package  com.churchsong.model;
+package com.churchsong.model;
 
 public enum SongType {
     FAST,

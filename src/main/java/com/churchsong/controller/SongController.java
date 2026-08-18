@@ -46,6 +46,11 @@ public class SongController {
 
     @PostMapping("/songs")
     public Song addSong(@RequestBody SongRequest request) {
+        if (request.getSongType() == null) {
+            throw new IllegalArgumentException(
+                    "songType cannot be null."
+            );
+        }
 
         Song song = new Song(
                 request.getFamilyId(),
@@ -70,6 +75,12 @@ public class SongController {
 
         if (song == null) {
             return null;
+        }
+
+        if (request.getSongType() == null) {
+            throw new IllegalArgumentException(
+                    "songType cannot be null."
+            );
         }
 
         song.setTitle(request.getTitle());
