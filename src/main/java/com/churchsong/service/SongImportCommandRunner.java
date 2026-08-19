@@ -4,6 +4,7 @@ import com.churchsong.dto.importing.ImportReport;
 import com.churchsong.dto.cleanup.TestDataCleanupReport;
 import com.churchsong.dto.cleanup.LegacyCleanupPlanReport;
 import com.churchsong.dto.normalization.MultilingualFamilyNormalizationReport;
+import com.churchsong.dto.normalization.SectionNormalizationUpdateReport;
 import com.churchsong.dto.audit.SongDataAuditReport;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -19,6 +20,7 @@ public class SongImportCommandRunner implements ApplicationRunner {
     private final SongImportService songImportService;
     private final TestDataCleanupService testDataCleanupService;
     private final MultilingualFamilyNormalizationService multilingualFamilyNormalizationService;
+    private final SectionNormalizationUpdateService sectionNormalizationUpdateService;
     private final SongDataAuditService songDataAuditService;
     private final LegacyCleanupPlanningService legacyCleanupPlanningService;
     private final ConfigurableApplicationContext applicationContext;
@@ -27,12 +29,14 @@ public class SongImportCommandRunner implements ApplicationRunner {
             SongImportService songImportService,
             TestDataCleanupService testDataCleanupService,
             MultilingualFamilyNormalizationService multilingualFamilyNormalizationService,
+            SectionNormalizationUpdateService sectionNormalizationUpdateService,
             SongDataAuditService songDataAuditService,
             LegacyCleanupPlanningService legacyCleanupPlanningService,
             ConfigurableApplicationContext applicationContext) {
         this.songImportService = songImportService;
         this.testDataCleanupService = testDataCleanupService;
         this.multilingualFamilyNormalizationService = multilingualFamilyNormalizationService;
+        this.sectionNormalizationUpdateService = sectionNormalizationUpdateService;
         this.songDataAuditService = songDataAuditService;
         this.legacyCleanupPlanningService = legacyCleanupPlanningService;
         this.applicationContext = applicationContext;
@@ -42,13 +46,14 @@ public class SongImportCommandRunner implements ApplicationRunner {
     public void run(ApplicationArguments arguments) {
         boolean cleanupTestData = arguments.containsOption("cleanup-test-data");
         boolean normalizeMultilingualFamily = arguments.containsOption("normalize-multilingual-family");
+        boolean applySectionNormalization = arguments.containsOption("apply-section-normalization");
         boolean auditSongData = arguments.containsOption("audit-song-data");
         boolean planLegacyCleanup = arguments.containsOption("plan-legacy-cleanup");
         boolean safeSongsOnly = arguments.containsOption("safe-songs-only");
         boolean hasSongsFile = arguments.containsOption("songs-file");
         boolean hasFamiliesFile = arguments.containsOption("families-file");
 
-        if ((cleanupTestData || normalizeMultilingualFamily || auditSongData || planLegacyCleanup)
+        if ((cleanupTestData || normalizeMultilingualFamily || applySectionNormalization || auditSongData || planLegacyCleanup)
                 && (hasSongsFile || hasFamiliesFile || safeSongsOnly)) {
             throw new IllegalArgumentException(
                     "Use either a maintenance command or the multilingual import options, not both."
@@ -62,6 +67,11 @@ public class SongImportCommandRunner implements ApplicationRunner {
 
         if (normalizeMultilingualFamily) {
             runMultilingualFamilyNormalization(arguments);
+            return;
+        }
+
+        if (applySectionNormalization) {
+            runSectionNormalizationUpdate(arguments);
             return;
         }
 
@@ -196,6 +206,27 @@ public class SongImportCommandRunner implements ApplicationRunner {
         }
 
         SongDataAuditReport report = songDataAuditService.auditSongData();
+        System.out.println(report.toConsoleReport());
+        SpringApplication.exit(applicationContext, () -> 0);
+    }
+
+    private void runSectionNormalizationUpdate(ApplicationArguments arguments) {
+        if (arguments.containsOption("dry-run")
+                && arguments.containsOption("apply")) {
+            throw new IllegalArgumentException(
+                    "Use either --dry-run or --apply, not both."
+            );
+        }
+
+        boolean apply = arguments.containsOption("apply");
+        Path sectionFixesFile = Path.of(
+                getRequiredOption(arguments, "section-fixes-file")
+        );
+        SectionNormalizationUpdateReport report =
+                sectionNormalizationUpdateService.applySectionNormalization(
+                        sectionFixesFile,
+                        apply
+                );
         System.out.println(report.toConsoleReport());
         SpringApplication.exit(applicationContext, () -> 0);
     }
