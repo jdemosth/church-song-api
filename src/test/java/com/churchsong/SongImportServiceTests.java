@@ -195,6 +195,111 @@ class SongImportServiceTests {
         );
     }
 
+    @Test
+    void safeSongDryRunDoesNotWriteAndKeepsStandaloneSongsFamilyless(
+            @TempDir Path tempDir) throws IOException {
+        Path databaseFile = tempDir.resolve("safe-dry-run.db");
+        Path songsFile = writeSongsFile(tempDir, sampleSafeSongs());
+
+        withContext(
+                databaseFile,
+                context -> {
+                    SongImportService songImportService =
+                            context.getBean(SongImportService.class);
+                    JdbcTemplate jdbcTemplate = context.getBean(JdbcTemplate.class);
+                    int initialSongCount = countRows(jdbcTemplate, "song");
+                    int initialFamilyCount = countRows(jdbcTemplate, "song_family");
+
+                    ImportReport report = songImportService.importSafeSongsOnly(
+                            songsFile,
+                            false
+                    );
+
+                    assertEquals("STAGED SAFE SONG IMPORT", report.getTitle());
+                    assertEquals("SAFE SONGS ONLY", report.getScope());
+                    assertEquals(0, report.getFamiliesCreated());
+                    assertEquals(3, report.getSongsCreated());
+                    assertEquals(1, report.getSongsSkipped());
+                    assertEquals(initialSongCount, countRows(jdbcTemplate, "song"));
+                    assertEquals(initialFamilyCount, countRows(jdbcTemplate, "song_family"));
+                    assertFalse(report.isCommitted());
+                }
+        );
+    }
+
+    @Test
+    void safeSongApplyIsIdempotentLeavesFamilyIdNullAndPreservesProtectedFamilies(
+            @TempDir Path tempDir) throws IOException {
+        Path databaseFile = tempDir.resolve("safe-apply.db");
+        Path songsFile = writeSongsFile(tempDir, sampleSafeSongs());
+
+        withContext(
+                databaseFile,
+                context -> {
+                    SongImportService songImportService =
+                            context.getBean(SongImportService.class);
+                    SongFamilyLibrary songFamilyLibrary =
+                            context.getBean(SongFamilyLibrary.class);
+                    JdbcTemplate jdbcTemplate = context.getBean(JdbcTemplate.class);
+
+                    songFamilyLibrary.addFamily(
+                            new SongFamily(
+                                    91235,
+                                    "Protected Imported Family",
+                                    "familykey-protected"
+                            )
+                    );
+
+                    ImportReport firstReport = songImportService.importSafeSongsOnly(
+                            songsFile,
+                            true
+                    );
+
+                    assertEquals(0, firstReport.getFamiliesCreated());
+                    assertEquals(3, firstReport.getSongsCreated());
+                    assertTrue(firstReport.isCommitted());
+
+                    Map<String, Object> englishSong = findSongBySourceUrl(
+                            jdbcTemplate,
+                            "https://example.com/safe-english"
+                    );
+                    Map<String, Object> creoleSong = findSongBySourceUrl(
+                            jdbcTemplate,
+                            "https://example.com/safe-creole"
+                    );
+                    Map<String, Object> spanishSong = findSongBySourceUrl(
+                            jdbcTemplate,
+                            "https://example.com/safe-spanish"
+                    );
+
+                    assertEquals("ENGLISH", englishSong.get("language"));
+                    assertEquals("HAITIAN_CREOLE", creoleSong.get("language"));
+                    assertEquals("SPANISH", spanishSong.get("language"));
+                    assertNull(englishSong.get("family_id"));
+                    assertNull(englishSong.get("song_type"));
+                    assertNull(englishSong.get("author"));
+                    assertEquals(1, countRows(jdbcTemplate, "song_family"));
+                    assertEquals(
+                            91235,
+                            ((Number) findFamilyBySourceKey(
+                                    jdbcTemplate,
+                                    "familykey-protected"
+                            ).get("id")).intValue()
+                    );
+
+                    ImportReport secondReport = songImportService.importSafeSongsOnly(
+                            songsFile,
+                            true
+                    );
+
+                    assertEquals(0, secondReport.getSongsCreated());
+                    assertEquals(3, secondReport.getSongsExisting());
+                    assertEquals(3, countRows(jdbcTemplate, "song"));
+                    assertEquals(1, countRows(jdbcTemplate, "song_family"));
+                }
+        );
+    }
+
     private List<Map<String, Object>> sampleSongs() {
         return List.of(
                 Map.of(
@@ -236,6 +341,43 @@ class SongImportServiceTests {
                         "sourceUrl", "https://example.com/article",
                         "reviewStatus", "PENDING",
                         "isLikelySong", false
+                )
+        );
+    }
+
+    private List<Map<String, Object>> sampleSafeSongs() {
+        return List.of(
+                Map.of(
+                        "title", "Safe English Song",
+                        "languageGuess", "ENGLISH",
+                        "lyrics", "Verse 1\nVerse 2",
+                        "sourceUrl", "https://example.com/safe-english",
+                        "reviewStatus", "PENDING",
+                        "isLikelySong", true
+                ),
+                Map.of(
+                        "title", "Safe Creole Song",
+                        "languageGuess", "HAITIAN_CREOLE",
+                        "lyrics", "Liy 1\nLiy 2",
+                        "sourceUrl", "https://example.com/safe-creole",
+                        "reviewStatus", "PENDING",
+                        "isLikelySong", true
+                ),
+                Map.of(
+                        "title", "Safe Spanish Song",
+                        "languageGuess", "SPANISH",
+                        "lyrics", "Uno\nDos",
+                        "sourceUrl", "https://example.com/safe-spanish",
+                        "reviewStatus", "PENDING",
+                        "isLikelySong", true
+                ),
+                Map.of(
+                        "title", "Broken Safe Song",
+                        "languageGuess", "ENGLISH",
+                        "lyrics", "",
+                        "sourceUrl", "https://example.com/broken-safe",
+                        "reviewStatus", "PENDING",
+                        "isLikelySong", true
                 )
         );
     }
@@ -290,6 +432,15 @@ class SongImportServiceTests {
         objectMapper.writerWithDefaultPrettyPrinter().writeValue(songsFile.toFile(), songs);
         objectMapper.writerWithDefaultPrettyPrinter().writeValue(familiesFile.toFile(), families);
         return new ImportFiles(songsFile, familiesFile);
+    }
+
+    private Path writeSongsFile(
+            Path tempDir,
+            List<Map<String, Object>> songs) throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        Path songsFile = tempDir.resolve("safe-songs.json");
+        objectMapper.writerWithDefaultPrettyPrinter().writeValue(songsFile.toFile(), songs);
+        return songsFile;
     }
 
     private void withContext(

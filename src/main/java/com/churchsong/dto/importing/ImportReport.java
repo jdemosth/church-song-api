@@ -5,6 +5,7 @@ import java.util.List;
 
 public class ImportReport {
 
+    private final String title;
     private final String mode;
     private final String scope;
     private int familiesCreated;
@@ -19,13 +20,22 @@ public class ImportReport {
     private final List<String> skippedFamilies;
     private final List<ImportSongResult> skippedSongs;
 
-    public ImportReport(String mode, String scope) {
+    public ImportReport(String title, String mode, String scope) {
+        this.title = title;
         this.mode = mode;
         this.scope = scope;
         this.warnings = new ArrayList<>();
         this.errors = new ArrayList<>();
         this.skippedFamilies = new ArrayList<>();
         this.skippedSongs = new ArrayList<>();
+    }
+
+    public ImportReport(String mode, String scope) {
+        this("MULTILINGUAL SONG IMPORT", mode, scope);
+    }
+
+    public String getTitle() {
+        return title;
     }
 
     public String getMode() {
@@ -124,7 +134,7 @@ public class ImportReport {
 
     public String toConsoleReport() {
         StringBuilder builder = new StringBuilder();
-        builder.append("MULTILINGUAL SONG IMPORT\n\n")
+        builder.append(title).append("\n\n")
                 .append("Mode: ").append(mode).append('\n')
                 .append("Scope: ").append(scope).append("\n\n")
                 .append("Families:\n")

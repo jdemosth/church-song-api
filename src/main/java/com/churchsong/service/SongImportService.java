@@ -81,17 +81,50 @@ public class SongImportService {
                 approvedFamiliesOnly
         );
 
+        return executePlan(
+                plan,
+                apply,
+                "MULTILINGUAL SONG IMPORT",
+                approvedFamiliesOnly
+                        ? "APPROVED FAMILIES ONLY"
+                        : "ALL ELIGIBLE SONGS"
+        );
+    }
+
+    public ImportReport importSafeSongsOnly(
+            Path songsFile,
+            boolean apply) {
+        validateFilePath(songsFile, "songsFile");
+        ImportPlan plan = buildPlan(
+                readSongs(songsFile),
+                List.of(),
+                false
+        );
+        return executePlan(
+                plan,
+                apply,
+                "STAGED SAFE SONG IMPORT",
+                "SAFE SONGS ONLY"
+        );
+    }
+
+    private ImportReport executePlan(
+            ImportPlan plan,
+            boolean apply,
+            String reportTitle,
+            String scope) {
         if (!apply) {
-            return buildDryRunReport(plan, approvedFamiliesOnly);
+            return buildDryRunReport(plan, reportTitle, scope);
         }
 
-        return applyPlan(plan, approvedFamiliesOnly);
+        return applyPlan(plan, reportTitle, scope);
     }
 
     private ImportReport buildDryRunReport(
             ImportPlan plan,
-            boolean approvedFamiliesOnly) {
-        ImportReport report = baseReport("DRY RUN", approvedFamiliesOnly);
+            String reportTitle,
+            String scope) {
+        ImportReport report = baseReport(reportTitle, "DRY RUN", scope);
         copyMessages(plan, report);
 
         plan.existingFamilyIds.forEach((ignored, ignoredId) ->
@@ -109,8 +142,9 @@ public class SongImportService {
 
     private ImportReport applyPlan(
             ImportPlan plan,
-            boolean approvedFamiliesOnly) {
-        ImportReport report = baseReport("APPLY", approvedFamiliesOnly);
+            String reportTitle,
+            String scope) {
+        ImportReport report = baseReport(reportTitle, "APPLY", scope);
         copyMessages(plan, report);
 
         plan.existingFamilyIds.forEach((ignored, ignoredId) ->
@@ -703,13 +737,13 @@ public class SongImportService {
     }
 
     private ImportReport baseReport(
+            String reportTitle,
             String mode,
-            boolean approvedFamiliesOnly) {
+            String scope) {
         return new ImportReport(
+                reportTitle,
                 mode,
-                approvedFamiliesOnly
-                        ? "APPROVED FAMILIES ONLY"
-                        : "ALL ELIGIBLE SONGS"
+                scope
         );
     }
 
