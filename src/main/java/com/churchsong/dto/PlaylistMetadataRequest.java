@@ -3,6 +3,8 @@ package com.churchsong.dto;
 public class PlaylistMetadataRequest {
 
     private String name;
+    private String serviceType;
+    private String customServiceType;
     private String serviceDate;
     private String theme;
 
@@ -12,6 +14,22 @@ public class PlaylistMetadataRequest {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getServiceType() {
+        return serviceType;
+    }
+
+    public void setServiceType(String serviceType) {
+        this.serviceType = serviceType;
+    }
+
+    public String getCustomServiceType() {
+        return customServiceType;
+    }
+
+    public void setCustomServiceType(String customServiceType) {
+        this.customServiceType = customServiceType;
     }
 
     public String getServiceDate() {

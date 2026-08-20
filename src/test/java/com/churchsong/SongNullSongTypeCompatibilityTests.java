@@ -166,6 +166,68 @@ class SongNullSongTypeCompatibilityTests {
                 });
     }
 
+    @Test
+    void updateSongPreservesExistingFamilyAndLanguageAndReturns404WhenMissing(
+            @TempDir Path tempDir) throws Exception {
+        withWebContext(
+                tempDir.resolve("song-update-preserves-family-language.db"),
+                context -> {
+                    SongLibrary songLibrary = context.getBean(SongLibrary.class);
+                    MockMvc mockMvc = mockMvc(context);
+
+                    Song existingSong = new Song(
+                            77,
+                            "Existing Song",
+                            "Admin",
+                            "Original Lyrics",
+                            "https://example.com/song",
+                            SongType.SLOW,
+                            SongLanguage.HAITIAN_CREOLE
+                    );
+                    songLibrary.addSong(existingSong);
+
+                    mockMvc.perform(
+                                    put("/songs/{id}", existingSong.getId())
+                                            .contentType(MediaType.APPLICATION_JSON)
+                                            .content("""
+                                                    {
+                                                      "title": "Existing Song Updated",
+                                                      "author": "Updated Author",
+                                                      "lyrics": "Updated Lyrics",
+                                                      "songType": "FAST"
+                                                    }
+                                                    """))
+                            .andExpect(status().isOk())
+                            .andExpect(jsonPath("$.id")
+                                    .value(existingSong.getId()))
+                            .andExpect(jsonPath("$.title")
+                                    .value("Existing Song Updated"))
+                            .andExpect(jsonPath("$.author")
+                                    .value("Updated Author"))
+                            .andExpect(jsonPath("$.lyrics")
+                                    .value("Updated Lyrics"))
+                            .andExpect(jsonPath("$.songType")
+                                    .value("FAST"))
+                            .andExpect(jsonPath("$.familyId")
+                                    .value(77))
+                            .andExpect(jsonPath("$.language")
+                                    .value("HAITIAN_CREOLE"));
+
+                    mockMvc.perform(
+                                    put("/songs/{id}", 999999)
+                                            .contentType(MediaType.APPLICATION_JSON)
+                                            .content("""
+                                                    {
+                                                      "title": "Missing Song",
+                                                      "author": "Nobody",
+                                                      "lyrics": "Lyrics",
+                                                      "songType": "SLOW"
+                                                    }
+                                                    """))
+                            .andExpect(status().isNotFound());
+                });
+    }
+
     private MockMvc mockMvc(
             ConfigurableApplicationContext context) {
         JsonMapper jsonMapper = context.getBean(

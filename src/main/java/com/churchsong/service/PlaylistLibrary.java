@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.TextStyle;
 import java.util.List;
@@ -15,6 +16,13 @@ import java.util.Locale;
 
 @Service
 public class PlaylistLibrary {
+
+    private static final String OTHER_SERVICE_TYPE = "Other";
+    private static final DateTimeFormatter
+            SAVED_PLAYLIST_DATE_FORMATTER =
+            DateTimeFormatter.ofPattern(
+                    "MMM d, uuuu",
+                    Locale.US);
 
     private final PlaylistRepository playlistRepository;
 
@@ -54,25 +62,49 @@ public class PlaylistLibrary {
     }
 
     public Playlist createSavedServicePlaylist(
-            String name,
+            String requestedServiceType,
+            String requestedCustomServiceType,
+            String requestedName,
             String requestedServiceDate,
             String theme) {
+        LocalDate serviceDate =
+                parseRequiredServiceDate(
+                        requestedServiceDate);
+        String serviceType = resolveOptionalServiceType(
+                requestedServiceType,
+                requestedCustomServiceType);
         Playlist playlist = new Playlist(
-                normalizeNewPlaylistName(name));
+                resolveSavedPlaylistName(
+                        serviceType,
+                        serviceDate,
+                        requestedName));
 
         playlist.setReusable(false);
-        playlist.setServiceDate(
-                parseRequiredServiceDate(
-                        requestedServiceDate));
+        playlist.setServiceType(serviceType);
+        playlist.setServiceDate(serviceDate);
         playlist.setTheme(theme);
 
         return playlistRepository.save(playlist);
     }
 
+    public Playlist createSavedServicePlaylist(
+            String name,
+            String requestedServiceDate,
+            String theme) {
+        return createSavedServicePlaylist(
+                null,
+                null,
+                name,
+                requestedServiceDate,
+                theme);
+    }
+
     @Transactional
     public Playlist copyPlaylistForService(
             Long sourcePlaylistId,
-            String name,
+            String requestedServiceType,
+            String requestedCustomServiceType,
+            String requestedName,
             String requestedServiceDate,
             String theme) {
         Playlist sourcePlaylist =
@@ -85,7 +117,9 @@ public class PlaylistLibrary {
 
         Playlist copiedPlaylist =
                 createSavedServicePlaylist(
-                        name,
+                        requestedServiceType,
+                        requestedCustomServiceType,
+                        requestedName,
                         requestedServiceDate,
                         theme);
 
@@ -97,10 +131,26 @@ public class PlaylistLibrary {
         return playlistRepository.save(copiedPlaylist);
     }
 
+    public Playlist copyPlaylistForService(
+            Long sourcePlaylistId,
+            String name,
+            String requestedServiceDate,
+            String theme) {
+        return copyPlaylistForService(
+                sourcePlaylistId,
+                null,
+                null,
+                name,
+                requestedServiceDate,
+                theme);
+    }
+
     @Transactional
     public Playlist updatePlaylistMetadata(
             Long playlistId,
-            String name,
+            String requestedServiceType,
+            String requestedCustomServiceType,
+            String requestedName,
             String requestedServiceDate,
             String theme) {
         Playlist playlist = findPlaylistById(playlistId);
@@ -109,27 +159,50 @@ public class PlaylistLibrary {
             return null;
         }
 
-        String normalizedName = normalizeName(name);
-        Playlist existingPlaylist =
-                findPlaylistByName(normalizedName);
-
-        if (existingPlaylist != null
-                && !existingPlaylist.getId()
-                        .equals(playlist.getId())) {
-            throw new IllegalArgumentException(
-                    "A playlist with this name already exists.");
-        }
-
-        playlist.setName(normalizedName);
-        playlist.setServiceDate(
+        LocalDate serviceDate =
                 playlist.isReusable()
                         ? parseOptionalServiceDate(
                                 requestedServiceDate)
                         : parseRequiredServiceDate(
-                                requestedServiceDate));
+                                requestedServiceDate);
+        String serviceType = resolveOptionalServiceType(
+                requestedServiceType,
+                requestedCustomServiceType);
+
+        playlist.setServiceDate(serviceDate);
+        playlist.setServiceType(serviceType);
+
+        if (!playlist.isReusable()) {
+            playlist.setName(
+                    resolveSavedPlaylistName(
+                            serviceType,
+                            serviceDate,
+                            requestedName != null
+                                    ? requestedName
+                                    : playlist.getName()));
+        } else if (requestedName != null
+                && !requestedName.trim().isEmpty()) {
+            playlist.setName(
+                    normalizeName(requestedName));
+        }
+
         playlist.setTheme(theme);
 
         return playlistRepository.save(playlist);
+    }
+
+    public Playlist updatePlaylistMetadata(
+            Long playlistId,
+            String name,
+            String requestedServiceDate,
+            String theme) {
+        return updatePlaylistMetadata(
+                playlistId,
+                null,
+                null,
+                name,
+                requestedServiceDate,
+                theme);
     }
 
     public boolean removePlaylistById(Long playlistId) {
@@ -166,26 +239,8 @@ public class PlaylistLibrary {
             return null;
         }
 
-        String normalizedNewName =
-                normalizeName(newName);
-
-        Playlist existingPlaylist =
-                findPlaylistByName(
-                        normalizedNewName);
-
-        if (existingPlaylist != null
-                && !existingPlaylist
-                        .getId()
-                        .equals(
-                                playlist.getId())) {
-
-            throw new IllegalArgumentException(
-                    "A playlist with this name already exists."
-            );
-        }
-
         playlist.setName(
-                normalizedNewName);
+                normalizeName(newName));
 
         return playlistRepository.save(
                 playlist);
@@ -202,25 +257,7 @@ public class PlaylistLibrary {
             return null;
         }
 
-        String normalizedNewName =
-                normalizeName(newName);
-
-        Playlist existingPlaylist =
-                findPlaylistByName(
-                        normalizedNewName);
-
-        if (existingPlaylist != null
-                && !existingPlaylist
-                        .getId()
-                        .equals(
-                                playlist.getId())) {
-
-            throw new IllegalArgumentException(
-                    "A playlist with this name already exists."
-            );
-        }
-
-        playlist.setName(normalizedNewName);
+        playlist.setName(normalizeName(newName));
 
         return playlistRepository.save(
                 playlist);
@@ -410,14 +447,6 @@ public class PlaylistLibrary {
                     "playlist cannot be null."
             );
         }
-
-        if (findPlaylistByName(
-                playlist.getName()) != null) {
-
-            throw new IllegalArgumentException(
-                    "A playlist with this name already exists."
-            );
-        }
     }
 
     private String normalizeName(String name) {
@@ -434,6 +463,19 @@ public class PlaylistLibrary {
         }
 
         return name;
+    }
+
+    private String normalizeOptionalText(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        String normalizedValue =
+                value.trim();
+
+        return normalizedValue.isEmpty()
+                ? null
+                : normalizedValue;
     }
 
     private LocalDate parseServiceDate(
@@ -480,17 +522,6 @@ public class PlaylistLibrary {
         return parseRequiredServiceDate(requestedServiceDate);
     }
 
-    private String normalizeNewPlaylistName(String name) {
-        String normalizedName = normalizeName(name);
-
-        if (findPlaylistByName(normalizedName) != null) {
-            throw new IllegalArgumentException(
-                    "A playlist with this name already exists.");
-        }
-
-        return normalizedName;
-    }
-
     private String normalizeWorkingPlaylistName(
             String requestedName,
             LocalDate serviceDate) {
@@ -500,20 +531,7 @@ public class PlaylistLibrary {
                     serviceDate);
         }
 
-        String normalizedName =
-                normalizeName(requestedName);
-
-        Playlist existingPlaylist =
-                findPlaylistByName(
-                        normalizedName);
-
-        if (existingPlaylist != null) {
-            throw new IllegalArgumentException(
-                    "A playlist with this name already exists."
-            );
-        }
-
-        return normalizedName;
+        return normalizeName(requestedName);
     }
 
     private String buildWorkingPlaylistName(
@@ -540,5 +558,60 @@ public class PlaylistLibrary {
                 + day
                 + "/"
                 + year;
+    }
+
+    private String resolveOptionalServiceType(
+            String requestedServiceType,
+            String requestedCustomServiceType) {
+        String normalizedServiceType =
+                normalizeOptionalText(
+                        requestedServiceType);
+
+        if (normalizedServiceType == null) {
+            return null;
+        }
+
+        if (OTHER_SERVICE_TYPE.equalsIgnoreCase(
+                normalizedServiceType)) {
+            String customServiceType =
+                    normalizeOptionalText(
+                            requestedCustomServiceType);
+
+            if (customServiceType == null) {
+                throw new IllegalArgumentException(
+                        "customServiceType cannot be null or empty when serviceType is Other.");
+            }
+
+            return customServiceType;
+        }
+
+        return normalizedServiceType;
+    }
+
+    private String resolveSavedPlaylistName(
+            String serviceType,
+            LocalDate serviceDate,
+            String requestedName) {
+        if (serviceType != null) {
+            if (serviceDate == null) {
+                throw new IllegalArgumentException(
+                        "serviceDate cannot be null or empty.");
+            }
+
+            return buildSavedPlaylistName(
+                    serviceType,
+                    serviceDate);
+        }
+
+        return normalizeName(requestedName);
+    }
+
+    private String buildSavedPlaylistName(
+            String serviceType,
+            LocalDate serviceDate) {
+        return serviceType
+                + " – "
+                + serviceDate.format(
+                        SAVED_PLAYLIST_DATE_FORMATTER);
     }
 }

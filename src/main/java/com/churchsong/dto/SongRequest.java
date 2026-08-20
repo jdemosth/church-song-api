@@ -93,6 +93,10 @@ public class SongRequest {
                 : language;
     }
 
+    public SongLanguage getRawLanguage() {
+        return language;
+    }
+
     public void setLanguage(SongLanguage language) {
         this.language = language;
     }

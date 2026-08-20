@@ -3,6 +3,7 @@ package com.churchsong.service;
 import com.churchsong.dto.importing.ImportReport;
 import com.churchsong.dto.cleanup.TestDataCleanupReport;
 import com.churchsong.dto.cleanup.LegacyCleanupPlanReport;
+import com.churchsong.dto.migration.SongLanguageSchemaMigrationReport;
 import com.churchsong.dto.normalization.MultilingualFamilyNormalizationReport;
 import com.churchsong.dto.normalization.SectionNormalizationUpdateReport;
 import com.churchsong.dto.audit.SongDataAuditReport;
@@ -23,6 +24,7 @@ public class SongImportCommandRunner implements ApplicationRunner {
     private final SectionNormalizationUpdateService sectionNormalizationUpdateService;
     private final SongDataAuditService songDataAuditService;
     private final LegacyCleanupPlanningService legacyCleanupPlanningService;
+    private final SongLanguageSchemaMigrationService songLanguageSchemaMigrationService;
     private final ConfigurableApplicationContext applicationContext;
 
     public SongImportCommandRunner(
@@ -32,6 +34,7 @@ public class SongImportCommandRunner implements ApplicationRunner {
             SectionNormalizationUpdateService sectionNormalizationUpdateService,
             SongDataAuditService songDataAuditService,
             LegacyCleanupPlanningService legacyCleanupPlanningService,
+            SongLanguageSchemaMigrationService songLanguageSchemaMigrationService,
             ConfigurableApplicationContext applicationContext) {
         this.songImportService = songImportService;
         this.testDataCleanupService = testDataCleanupService;
@@ -39,6 +42,7 @@ public class SongImportCommandRunner implements ApplicationRunner {
         this.sectionNormalizationUpdateService = sectionNormalizationUpdateService;
         this.songDataAuditService = songDataAuditService;
         this.legacyCleanupPlanningService = legacyCleanupPlanningService;
+        this.songLanguageSchemaMigrationService = songLanguageSchemaMigrationService;
         this.applicationContext = applicationContext;
     }
 
@@ -49,11 +53,12 @@ public class SongImportCommandRunner implements ApplicationRunner {
         boolean applySectionNormalization = arguments.containsOption("apply-section-normalization");
         boolean auditSongData = arguments.containsOption("audit-song-data");
         boolean planLegacyCleanup = arguments.containsOption("plan-legacy-cleanup");
+        boolean migrateSongLanguageFrench = arguments.containsOption("migrate-song-language-french");
         boolean safeSongsOnly = arguments.containsOption("safe-songs-only");
         boolean hasSongsFile = arguments.containsOption("songs-file");
         boolean hasFamiliesFile = arguments.containsOption("families-file");
 
-        if ((cleanupTestData || normalizeMultilingualFamily || applySectionNormalization || auditSongData || planLegacyCleanup)
+        if ((cleanupTestData || normalizeMultilingualFamily || applySectionNormalization || auditSongData || planLegacyCleanup || migrateSongLanguageFrench)
                 && (hasSongsFile || hasFamiliesFile || safeSongsOnly)) {
             throw new IllegalArgumentException(
                     "Use either a maintenance command or the multilingual import options, not both."
@@ -82,6 +87,11 @@ public class SongImportCommandRunner implements ApplicationRunner {
 
         if (planLegacyCleanup) {
             runLegacyCleanupPlan(arguments);
+            return;
+        }
+
+        if (migrateSongLanguageFrench) {
+            runSongLanguageSchemaMigration(arguments);
             return;
         }
 
@@ -241,6 +251,21 @@ public class SongImportCommandRunner implements ApplicationRunner {
 
         boolean apply = arguments.containsOption("apply");
         LegacyCleanupPlanReport report = legacyCleanupPlanningService.planLegacyCleanup(apply);
+        System.out.println(report.toConsoleReport());
+        SpringApplication.exit(applicationContext, () -> 0);
+    }
+
+    private void runSongLanguageSchemaMigration(ApplicationArguments arguments) {
+        if (arguments.containsOption("dry-run")
+                && arguments.containsOption("apply")) {
+            throw new IllegalArgumentException(
+                    "Use either --dry-run or --apply, not both."
+            );
+        }
+
+        boolean apply = arguments.containsOption("apply");
+        SongLanguageSchemaMigrationReport report =
+                songLanguageSchemaMigrationService.migrateFrenchLanguageConstraint(apply);
         System.out.println(report.toConsoleReport());
         SpringApplication.exit(applicationContext, () -> 0);
     }

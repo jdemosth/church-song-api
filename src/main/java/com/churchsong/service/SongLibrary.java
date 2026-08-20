@@ -28,7 +28,7 @@ public class SongLibrary {
 
     public void addSong(Song song) {
         validateSong(song);
-        songRepository.save(song);
+        songRepository.saveAndFlush(song);
     }
 
     public Song updateSong(Song song) {
@@ -38,7 +38,7 @@ public class SongLibrary {
             );
         }
 
-        return songRepository.save(song);
+        return songRepository.saveAndFlush(song);
     }
 
     public Song findSongById(int id) {

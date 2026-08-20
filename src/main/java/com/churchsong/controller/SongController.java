@@ -74,7 +74,10 @@ public class SongController {
         Song song = songLibrary.findSongById(id);
 
         if (song == null) {
-            return null;
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Song not found."
+            );
         }
 
         if (request.getSongType() == null) {
@@ -87,10 +90,14 @@ public class SongController {
         song.setAuthor(request.getAuthor());
         song.setLyrics(request.getLyrics());
         song.setSongType(request.getSongType());
-        song.setFamilyId(request.getFamilyId());
-        song.setLanguage(request.getLanguage() == null
-                ? SongLanguage.UNKNOWN
-                : request.getLanguage());
+
+        if (request.getFamilyId() != null) {
+            song.setFamilyId(request.getFamilyId());
+        }
+
+        if (request.getRawLanguage() != null) {
+            song.setLanguage(request.getRawLanguage());
+        }
 
         return songLibrary.updateSong(song);
     }

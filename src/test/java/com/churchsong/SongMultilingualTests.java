@@ -1,5 +1,6 @@
 package com.churchsong;
 
+import com.churchsong.dto.SongFamilyVersionsResponse;
 import com.churchsong.model.Song;
 import com.churchsong.model.SongFamily;
 import com.churchsong.model.SongLanguage;
@@ -13,6 +14,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -109,10 +111,19 @@ class SongMultilingualTests {
                             SongType.SLOW,
                             SongLanguage.SPANISH
                     );
+                    Song frenchSong = new Song(
+                            family.getId(),
+                            "Unit Test A Dieu Soit La Gloire",
+                            null,
+                            "...",
+                            SongType.SLOW,
+                            SongLanguage.FRENCH
+                    );
 
                     songLibrary.addSong(englishSong);
                     songLibrary.addSong(creoleSong);
                     songLibrary.addSong(spanishSong);
+                    songLibrary.addSong(frenchSong);
 
                     assertEquals(
                             "ENGLISH",
@@ -139,6 +150,14 @@ class SongMultilingualTests {
                             )
                     );
                     assertEquals(
+                            "FRENCH",
+                            findSongValue(
+                                    jdbcTemplate,
+                                    "Unit Test A Dieu Soit La Gloire",
+                                    "language"
+                            )
+                    );
+                    assertEquals(
                             TEST_FAMILY_ID.intValue(),
                             ((Number) findSongValue(
                                     jdbcTemplate,
@@ -159,6 +178,14 @@ class SongMultilingualTests {
                             ((Number) findSongValue(
                                     jdbcTemplate,
                                     "Unit Test Cámbiame O, Dios.",
+                                    "family_id"
+                            )).intValue()
+                    );
+                    assertEquals(
+                            TEST_FAMILY_ID.intValue(),
+                            ((Number) findSongValue(
+                                    jdbcTemplate,
+                                    "Unit Test A Dieu Soit La Gloire",
                                     "family_id"
                             )).intValue()
                     );
@@ -197,6 +224,135 @@ class SongMultilingualTests {
 
         assertNull(song.getFamilyId());
         assertEquals(SongLanguage.UNKNOWN, song.getLanguage());
+    }
+
+    @Test
+    void returnsFourLanguageSlotsWithMissingVersionsLeftNull(
+            @TempDir Path tempDir) {
+        Path databaseFile =
+                tempDir.resolve("song-family-version-slots.db");
+
+        withContext(
+                databaseFile,
+                context -> {
+                    SongLibrary songLibrary =
+                            context.getBean(SongLibrary.class);
+                    SongFamilyLibrary songFamilyLibrary =
+                            context.getBean(SongFamilyLibrary.class);
+
+                    SongFamily family =
+                            songFamilyLibrary.addFamily(
+                                    new SongFamily(
+                                            TEST_FAMILY_ID,
+                                            "Unit Test Family Slots"
+                                    )
+                            );
+
+                    Song creoleSong = new Song(
+                            family.getId(),
+                            "Unit Test Kreyol Only",
+                            null,
+                            "...",
+                            SongType.SLOW,
+                            SongLanguage.HAITIAN_CREOLE
+                    );
+
+                    songLibrary.addSong(creoleSong);
+
+                    SongFamilyVersionsResponse response =
+                            songFamilyLibrary
+                                    .getLanguageVersionsByFamilyId(
+                                            family.getId());
+
+                    assertEquals(
+                            family.getId(),
+                            response.getFamilyId());
+                    assertEquals(
+                            Set.of(
+                                    SongLanguage.ENGLISH,
+                                    SongLanguage.HAITIAN_CREOLE,
+                                    SongLanguage.SPANISH,
+                                    SongLanguage.FRENCH
+                            ),
+                            response.getVersions().keySet());
+                    assertNull(
+                            response.getVersions().get(
+                                    SongLanguage.ENGLISH));
+                    assertNotNull(
+                            response.getVersions().get(
+                                    SongLanguage.HAITIAN_CREOLE));
+                    assertNull(
+                            response.getVersions().get(
+                                    SongLanguage.SPANISH));
+                    assertNull(
+                            response.getVersions().get(
+                                    SongLanguage.FRENCH));
+                });
+    }
+
+    @Test
+    void returnsAllAvailableLanguageVersionsBySlot(
+            @TempDir Path tempDir) {
+        Path databaseFile =
+                tempDir.resolve("song-family-all-language-slots.db");
+
+        withContext(
+                databaseFile,
+                context -> {
+                    SongLibrary songLibrary =
+                            context.getBean(SongLibrary.class);
+                    SongFamilyLibrary songFamilyLibrary =
+                            context.getBean(SongFamilyLibrary.class);
+
+                    SongFamily family =
+                            songFamilyLibrary.addFamily(
+                                    new SongFamily(
+                                            TEST_FAMILY_ID,
+                                            "Unit Test Complete Family"
+                                    )
+                            );
+
+                    Map<SongLanguage, String> titlesByLanguage =
+                            Map.of(
+                                    SongLanguage.ENGLISH,
+                                    "Unit Test English",
+                                    SongLanguage.HAITIAN_CREOLE,
+                                    "Unit Test Kreyol",
+                                    SongLanguage.SPANISH,
+                                    "Unit Test Espanol",
+                                    SongLanguage.FRENCH,
+                                    "Unit Test Francais"
+                            );
+
+                    titlesByLanguage.forEach(
+                            (language, title) ->
+                                    songLibrary.addSong(
+                                            new Song(
+                                                    family.getId(),
+                                                    title,
+                                                    null,
+                                                    "...",
+                                                    SongType.SLOW,
+                                                    language
+                                            )
+                                    )
+                    );
+
+                    SongFamilyVersionsResponse response =
+                            songFamilyLibrary
+                                    .getLanguageVersionsByFamilyId(
+                                            family.getId());
+
+                    titlesByLanguage.forEach(
+                            (language, expectedTitle) ->
+                                    assertEquals(
+                                            expectedTitle,
+                                            response.getVersions()
+                                                    .get(language)
+                                                    .getTitle()
+                                    )
+                    );
+                });
     }
 
     private int countSongsByTitle(

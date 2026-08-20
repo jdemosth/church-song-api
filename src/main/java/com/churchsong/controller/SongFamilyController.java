@@ -1,5 +1,6 @@
 package com.churchsong.controller;
 
+import com.churchsong.dto.SongFamilyVersionsResponse;
 import com.churchsong.dto.SongFamilyRequest;
 import com.churchsong.model.Song;
 import com.churchsong.model.SongFamily;
@@ -46,5 +47,12 @@ public class SongFamilyController {
     public List<Song> getSongsByFamilyId(
             @PathVariable int id) {
         return songFamilyLibrary.getSongsByFamilyId(id);
+    }
+
+    @GetMapping("/song-families/{id}/versions")
+    public SongFamilyVersionsResponse getSongFamilyVersions(
+            @PathVariable int id) {
+        return songFamilyLibrary
+                .getLanguageVersionsByFamilyId(id);
     }
 }

@@ -618,6 +618,256 @@ class PlaylistLibraryTests {
                 });
     }
 
+    @Test
+    void createsStructuredSavedPlaylistName(
+            @TempDir Path tempDir) {
+        withContext(
+                tempDir.resolve("structured-saved-name.db"),
+                context -> {
+                    PlaylistLibrary playlistLibrary =
+                            context.getBean(PlaylistLibrary.class);
+
+                    Playlist playlist =
+                            playlistLibrary.createSavedServicePlaylist(
+                                    "Sunday Morning",
+                                    null,
+                                    null,
+                                    "2026-08-23",
+                                    null);
+
+                    assertEquals(
+                            "Sunday Morning – Aug 23, 2026",
+                            playlist.getName());
+                    assertEquals(
+                            "Sunday Morning",
+                            playlist.getServiceType());
+                    assertNull(playlist.getTheme());
+                });
+    }
+
+    @Test
+    void createsStructuredSavedPlaylistWithTheme(
+            @TempDir Path tempDir) {
+        withContext(
+                tempDir.resolve("structured-saved-theme.db"),
+                context -> {
+                    PlaylistLibrary playlistLibrary =
+                            context.getBean(PlaylistLibrary.class);
+
+                    Playlist playlist =
+                            playlistLibrary.createSavedServicePlaylist(
+                                    "Sunday Morning",
+                                    null,
+                                    null,
+                                    "2026-08-23",
+                                    " Grace ");
+
+                    assertEquals(
+                            "Sunday Morning – Aug 23, 2026",
+                            playlist.getName());
+                    assertEquals(
+                            "Grace",
+                            playlist.getTheme());
+                });
+    }
+
+    @Test
+    void createsStructuredSavedPlaylistUsingCustomServiceType(
+            @TempDir Path tempDir) {
+        withContext(
+                tempDir.resolve("structured-other-service-type.db"),
+                context -> {
+                    PlaylistLibrary playlistLibrary =
+                            context.getBean(PlaylistLibrary.class);
+
+                    Playlist playlist =
+                            playlistLibrary.createSavedServicePlaylist(
+                                    "Other",
+                                    " Men's Conference ",
+                                    null,
+                                    "2026-08-23",
+                                    null);
+
+                    assertEquals(
+                            "Men's Conference – Aug 23, 2026",
+                            playlist.getName());
+                    assertEquals(
+                            "Men's Conference",
+                            playlist.getServiceType());
+                });
+    }
+
+    @Test
+    void allowsDuplicateStructuredSavedPlaylistNames(
+            @TempDir Path tempDir) {
+        withContext(
+                tempDir.resolve("structured-duplicate-names.db"),
+                context -> {
+                    PlaylistLibrary playlistLibrary =
+                            context.getBean(PlaylistLibrary.class);
+
+                    Playlist first =
+                            playlistLibrary.createSavedServicePlaylist(
+                                    "Sunday Morning",
+                                    null,
+                                    null,
+                                    "2026-08-23",
+                                    null);
+                    Playlist second =
+                            playlistLibrary.createSavedServicePlaylist(
+                                    "Sunday Morning",
+                                    null,
+                                    null,
+                                    "2026-08-23",
+                                    null);
+
+                    assertNotEquals(
+                            first.getId(),
+                            second.getId());
+                    assertEquals(
+                            first.getName(),
+                            second.getName());
+                });
+    }
+
+    @Test
+    void updatesStructuredPlaylistNameWhenServiceTypeChanges(
+            @TempDir Path tempDir) {
+        withContext(
+                tempDir.resolve("structured-metadata-name-update.db"),
+                context -> {
+                    PlaylistLibrary playlistLibrary =
+                            context.getBean(PlaylistLibrary.class);
+
+                    Playlist playlist =
+                            playlistLibrary.createSavedServicePlaylist(
+                                    "Sunday Morning",
+                                    null,
+                                    null,
+                                    "2026-08-23",
+                                    null);
+
+                    Playlist updated =
+                            playlistLibrary.updatePlaylistMetadata(
+                                    playlist.getId(),
+                                    "Sunday Evening",
+                                    null,
+                                    null,
+                                    "2026-08-23",
+                                    null);
+
+                    assertEquals(
+                            "Sunday Evening – Aug 23, 2026",
+                            updated.getName());
+                    assertEquals(
+                            "Sunday Evening",
+                            updated.getServiceType());
+                });
+    }
+
+    @Test
+    void keepsStructuredPlaylistNameWhenThemeChanges(
+            @TempDir Path tempDir) {
+        withContext(
+                tempDir.resolve("structured-theme-update.db"),
+                context -> {
+                    PlaylistLibrary playlistLibrary =
+                            context.getBean(PlaylistLibrary.class);
+
+                    Playlist playlist =
+                            playlistLibrary.createSavedServicePlaylist(
+                                    "Sunday Morning",
+                                    null,
+                                    null,
+                                    "2026-08-23",
+                                    null);
+
+                    Playlist updated =
+                            playlistLibrary.updatePlaylistMetadata(
+                                    playlist.getId(),
+                                    "Sunday Morning",
+                                    null,
+                                    null,
+                                    "2026-08-23",
+                                    "Mercy");
+
+                    assertEquals(
+                            "Sunday Morning – Aug 23, 2026",
+                            updated.getName());
+                    assertEquals(
+                            "Mercy",
+                            updated.getTheme());
+                });
+    }
+
+    @Test
+    void keepsLegacySavedPlaylistUsableWithoutServiceType(
+            @TempDir Path tempDir) {
+        withContext(
+                tempDir.resolve("legacy-saved-playlist.db"),
+                context -> {
+                    PlaylistLibrary playlistLibrary =
+                            context.getBean(PlaylistLibrary.class);
+
+                    Playlist created =
+                            playlistLibrary.createSavedServicePlaylist(
+                                    "Legacy Revival Night",
+                                    "2026-08-16",
+                                    null);
+
+                    Playlist loaded =
+                            playlistLibrary.findPlaylistById(
+                                    created.getId());
+
+                    assertNotNull(loaded);
+                    assertEquals(
+                            "Legacy Revival Night",
+                            loaded.getName());
+                    assertNull(
+                            loaded.getServiceType());
+                });
+    }
+
+    @Test
+    void copiesStructuredPlaylistAndPreservesSourceAndOrder(
+            @TempDir Path tempDir) {
+        withContext(
+                tempDir.resolve("structured-copy-playlist.db"),
+                context -> {
+                    SongLibrary songLibrary =
+                            context.getBean(SongLibrary.class);
+                    PlaylistLibrary playlistLibrary =
+                            context.getBean(PlaylistLibrary.class);
+                    Song firstSong = createSong(songLibrary, "First");
+                    Song secondSong = createSong(songLibrary, "Second");
+                    Playlist source = createReusablePlaylist(
+                            playlistLibrary,
+                            "Reusable Source",
+                            List.of(firstSong, secondSong));
+
+                    Playlist copied =
+                            playlistLibrary.copyPlaylistForService(
+                                    source.getId(),
+                                    "Sunday Morning",
+                                    null,
+                                    null,
+                                    "2026-08-23",
+                                    null);
+
+                    assertEquals(
+                            "Sunday Morning – Aug 23, 2026",
+                            copied.getName());
+                    assertEquals(
+                            source.getId(),
+                            copied.getSourcePlaylistId());
+                    assertEquals(
+                            List.of("First", "Second"),
+                            copied.getSongs().stream()
+                                    .map(Song::getTitle)
+                                    .toList());
+                });
+    }
+
     private void withContext(
             Path databaseFile,
             Consumer<ConfigurableApplicationContext> testBody) {

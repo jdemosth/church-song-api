@@ -19,6 +19,7 @@ public class Playlist {
     private Long id;
 
     private String name;
+    private String serviceType;
     private Boolean reusable;
     private LocalDate serviceDate;
     private String theme;
@@ -50,6 +51,19 @@ public class Playlist {
 
     public boolean isReusable() {
         return reusable == null || reusable;
+    }
+
+    public String getServiceType() {
+        return serviceType;
+    }
+
+    public void setServiceType(String serviceType) {
+        if (serviceType == null || serviceType.trim().isEmpty()) {
+            this.serviceType = null;
+            return;
+        }
+
+        this.serviceType = serviceType.trim();
     }
 
     public void setReusable(boolean reusable) {

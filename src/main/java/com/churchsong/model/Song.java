@@ -7,14 +7,12 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Column;
 
 @Entity
 public class Song {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(columnDefinition = "integer")
     private Integer id;
 
     private Integer familyId;
@@ -88,6 +86,16 @@ public class Song {
 
     public Integer getId() {
         return id;
+    }
+
+    public void setId(Integer id) {
+        if (id == null || id <= 0) {
+            throw new IllegalArgumentException(
+                    "id must be greater than 0."
+            );
+        }
+
+        this.id = id;
     }
 
     public Integer getFamilyId() {

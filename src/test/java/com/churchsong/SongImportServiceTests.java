@@ -300,6 +300,49 @@ class SongImportServiceTests {
         );
     }
 
+    @Test
+    void safeSongImportAcceptsFrenchLanguage(
+            @TempDir Path tempDir) throws IOException {
+        Path databaseFile = tempDir.resolve("safe-french.db");
+        Path songsFile = writeSongsFile(
+                tempDir,
+                List.of(
+                        Map.of(
+                                "title", "Louons le Seigneur",
+                                "languageGuess", "FRENCH",
+                                "lyrics", "Louons le Seigneur\nA Dieu soit la gloire",
+                                "sourceUrl", "https://example.com/safe-french",
+                                "reviewStatus", "PENDING",
+                                "isLikelySong", true
+                        )
+                )
+        );
+
+        withContext(
+                databaseFile,
+                context -> {
+                    SongImportService songImportService =
+                            context.getBean(SongImportService.class);
+                    JdbcTemplate jdbcTemplate = context.getBean(JdbcTemplate.class);
+
+                    ImportReport report = songImportService.importSafeSongsOnly(
+                            songsFile,
+                            true
+                    );
+
+                    assertEquals(1, report.getSongsCreated());
+                    assertTrue(report.isCommitted());
+                    assertEquals(
+                            "FRENCH",
+                            findSongBySourceUrl(
+                                    jdbcTemplate,
+                                    "https://example.com/safe-french"
+                            ).get("language")
+                    );
+                }
+        );
+    }
+
     private List<Map<String, Object>> sampleSongs() {
         return List.of(
                 Map.of(

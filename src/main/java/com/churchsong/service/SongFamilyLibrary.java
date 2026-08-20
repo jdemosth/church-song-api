@@ -1,25 +1,29 @@
 package com.churchsong.service;
 
+import com.churchsong.dto.SongFamilyVersionsResponse;
 import com.churchsong.model.Song;
 import com.churchsong.model.SongFamily;
+import com.churchsong.model.SongLanguage;
+import com.churchsong.model.SongType;
 import com.churchsong.repository.SongFamilyRepository;
-import com.churchsong.repository.SongRepository;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 
 @Service
 public class SongFamilyLibrary {
 
     private final SongFamilyRepository songFamilyRepository;
-    private final SongRepository songRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     public SongFamilyLibrary(
             SongFamilyRepository songFamilyRepository,
-            SongRepository songRepository) {
+            JdbcTemplate jdbcTemplate) {
         this.songFamilyRepository = songFamilyRepository;
-        this.songRepository = songRepository;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     public SongFamily addFamily(SongFamily songFamily) {
@@ -60,10 +64,73 @@ public class SongFamilyLibrary {
             );
         }
 
-        return songRepository.findByFamilyId(familyId)
-                .stream()
-                .filter(Objects::nonNull)
-                .toList();
+        return jdbcTemplate.query(
+                """
+                        select
+                            coalesce(nullif(id, 0), rowid) as resolved_id,
+                            family_id,
+                            title,
+                            author,
+                            lyrics,
+                            source_url,
+                            song_type,
+                            language
+                        from song
+                        where family_id = ?
+                        order by id
+                """,
+                (resultSet, rowNum) -> {
+                    Integer familyIdValue =
+                            resultSet.getInt("family_id");
+                    Integer songId =
+                            resultSet.getInt("resolved_id");
+                    Song song = new Song(
+                            familyIdValue,
+                            resultSet.getString("title"),
+                            resultSet.getString("author"),
+                            resultSet.getString("lyrics"),
+                            resultSet.getString("source_url"),
+                            SongType.valueOf(
+                                    resultSet.getString("song_type")),
+                            SongLanguage.valueOf(
+                                    resultSet.getString("language"))
+                    );
+                    song.setId(songId);
+                    return song;
+                },
+                familyId
+        );
+    }
+
+    public SongFamilyVersionsResponse getLanguageVersionsByFamilyId(
+            int familyId) {
+        Map<SongLanguage, Song> versions =
+                new LinkedHashMap<>();
+
+        for (SongLanguage language :
+                SongLanguage.supportedFamilyLanguages()) {
+            versions.put(language, null);
+        }
+
+        for (Song song : getSongsByFamilyId(familyId)) {
+            if (song == null) {
+                continue;
+            }
+
+            SongLanguage language =
+                    song.getLanguage();
+
+            if (!versions.containsKey(language)) {
+                continue;
+            }
+
+            versions.put(language, song);
+        }
+
+        return new SongFamilyVersionsResponse(
+                familyId,
+                versions
+        );
     }
 
     private void validateSongFamily(SongFamily songFamily) {

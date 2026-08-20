@@ -75,6 +75,8 @@ public class PlaylistController {
     public Playlist createSavedServicePlaylist(
             @RequestBody SavedServicePlaylistRequest request) {
         return playlistLibrary.createSavedServicePlaylist(
+                request.getServiceType(),
+                request.getCustomServiceType(),
                 request.getName(),
                 request.getServiceDate(),
                 request.getTheme());
@@ -87,6 +89,8 @@ public class PlaylistController {
             @RequestBody CopyPlaylistRequest request) {
         return playlistLibrary.copyPlaylistForService(
                 sourcePlaylistId,
+                request.getServiceType(),
+                request.getCustomServiceType(),
                 request.getName(),
                 request.getServiceDate(),
                 request.getTheme());
@@ -139,6 +143,8 @@ public class PlaylistController {
             @RequestBody PlaylistMetadataRequest request) {
         return playlistLibrary.updatePlaylistMetadata(
                 playlistId,
+                request.getServiceType(),
+                request.getCustomServiceType(),
                 request.getName(),
                 request.getServiceDate(),
                 request.getTheme());
