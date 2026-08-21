@@ -1,6 +1,8 @@
 package com.churchsong.model;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -11,6 +13,7 @@ import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,8 +27,15 @@ public class ServicePlan {
     private Long id;
 
     private String serviceName;
+    private String serviceType;
     private LocalDate serviceDate;
     private LocalTime serviceTime;
+    private String theme;
+    private Long sourcePlaylistId;
+    private LocalDateTime completedAt;
+
+    @Enumerated(EnumType.STRING)
+    private ServicePlanStatus status;
 
     @ManyToMany
     @JoinTable(
@@ -37,6 +47,7 @@ public class ServicePlan {
     private List<Song> songs;
 
     protected ServicePlan() {
+        this.status = ServicePlanStatus.ACTIVE;
         this.songs = new ArrayList<>();
     }
 
@@ -47,6 +58,7 @@ public class ServicePlan {
         setServiceName(serviceName);
         setServiceDate(serviceDate);
         setServiceTime(serviceTime);
+        this.status = ServicePlanStatus.ACTIVE;
         this.songs = new ArrayList<>();
     }
 
@@ -76,6 +88,19 @@ public class ServicePlan {
         return serviceDate;
     }
 
+    public String getServiceType() {
+        return serviceType;
+    }
+
+    public void setServiceType(String serviceType) {
+        if (serviceType == null || serviceType.trim().isEmpty()) {
+            this.serviceType = null;
+            return;
+        }
+
+        this.serviceType = serviceType.trim();
+    }
+
     public void setServiceDate(LocalDate serviceDate) {
         if (serviceDate == null) {
             throw new IllegalArgumentException(
@@ -92,6 +117,69 @@ public class ServicePlan {
 
     public void setServiceTime(LocalTime serviceTime) {
         this.serviceTime = serviceTime;
+    }
+
+    public String getTheme() {
+        return theme;
+    }
+
+    public void setTheme(String theme) {
+        if (theme == null || theme.trim().isEmpty()) {
+            this.theme = null;
+            return;
+        }
+
+        this.theme = theme.trim();
+    }
+
+    public Long getSourcePlaylistId() {
+        return sourcePlaylistId;
+    }
+
+    public void setSourcePlaylistId(Long sourcePlaylistId) {
+        this.sourcePlaylistId = sourcePlaylistId;
+    }
+
+    public LocalDateTime getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(LocalDateTime completedAt) {
+        this.completedAt = completedAt;
+    }
+
+    public ServicePlanStatus getStatus() {
+        return status == null
+                ? ServicePlanStatus.ACTIVE
+                : status;
+    }
+
+    public void setStatus(ServicePlanStatus status) {
+        this.status =
+                status == null
+                        ? ServicePlanStatus.ACTIVE
+                        : status;
+    }
+
+    public boolean isCompleted() {
+        return getStatus() == ServicePlanStatus.COMPLETED;
+    }
+
+    public void markCompleted(LocalDateTime completedAt) {
+        if (isCompleted()) {
+            throw new IllegalStateException(
+                    "This service has already been completed."
+            );
+        }
+
+        if (completedAt == null) {
+            throw new IllegalArgumentException(
+                    "completedAt cannot be null."
+            );
+        }
+
+        this.status = ServicePlanStatus.COMPLETED;
+        this.completedAt = completedAt;
     }
 
     public List<Song> getSongs() {

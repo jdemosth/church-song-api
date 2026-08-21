@@ -1,8 +1,10 @@
 package com.churchsong.controller;
 
 import com.churchsong.dto.ServicePlanRequest;
+import com.churchsong.model.Playlist;
 import com.churchsong.model.ServicePlan;
 import com.churchsong.model.Song;
+import com.churchsong.service.PlaylistLibrary;
 import com.churchsong.service.ServicePlanLibrary;
 import com.churchsong.service.SongLibrary;
 import org.springframework.http.HttpStatus;
@@ -25,19 +27,33 @@ import java.util.List;
 public class ServicePlanController {
 
     private final ServicePlanLibrary servicePlanLibrary;
+    private final PlaylistLibrary playlistLibrary;
     private final SongLibrary songLibrary;
 
     public ServicePlanController(
             ServicePlanLibrary servicePlanLibrary,
+            PlaylistLibrary playlistLibrary,
             SongLibrary songLibrary) {
         this.servicePlanLibrary =
                 servicePlanLibrary;
+        this.playlistLibrary = playlistLibrary;
         this.songLibrary = songLibrary;
     }
 
     @GetMapping("/service-plans")
     public List<ServicePlan> getServicePlans() {
         return servicePlanLibrary.getServicePlans();
+    }
+
+    @GetMapping("/service-plans/active")
+    public List<ServicePlan> getActiveServicePlans() {
+        return servicePlanLibrary.getActiveServicePlans();
+    }
+
+    @GetMapping("/service-plans/history")
+    public List<ServicePlan> getCompletedServiceHistory() {
+        return servicePlanLibrary
+                .getCompletedServiceHistory();
     }
 
     @GetMapping("/service-plans/upcoming")
@@ -59,8 +75,11 @@ public class ServicePlanController {
             @RequestBody ServicePlanRequest request) {
         return servicePlanLibrary.createServicePlan(
                 request.getServiceName(),
+                request.getServiceType(),
                 request.getServiceDate(),
                 request.getServiceTime(),
+                request.getTheme(),
+                request.getSourcePlaylistId(),
                 findSongsByIds(request.getSongIds()));
     }
 
@@ -71,8 +90,10 @@ public class ServicePlanController {
         return servicePlanLibrary.updateServicePlan(
                 servicePlanId,
                 request.getServiceName(),
+                request.getServiceType(),
                 request.getServiceDate(),
-                request.getServiceTime());
+                request.getServiceTime(),
+                request.getTheme());
     }
 
     @PostMapping("/service-plans/{servicePlanId}/duplicate")
@@ -87,11 +108,57 @@ public class ServicePlanController {
                 request.getServiceTime());
     }
 
+    @PostMapping("/service-plans/{servicePlanId}/complete")
+    public ServicePlan completeServicePlan(
+            @PathVariable Long servicePlanId) {
+        return servicePlanLibrary.completeServicePlan(
+                servicePlanId);
+    }
+
+    @PostMapping("/service-plans/{servicePlanId}/reuse")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ServicePlan reuseCompletedServicePlan(
+            @PathVariable Long servicePlanId,
+            @RequestBody ServicePlanRequest request) {
+        return servicePlanLibrary.reuseCompletedServicePlan(
+                servicePlanId,
+                request.getServiceName(),
+                request.getServiceType(),
+                request.getServiceDate(),
+                request.getServiceTime());
+    }
+
+    @PostMapping("/playlists/{playlistId}/complete-service")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ServicePlan completePlaylistAsService(
+            @PathVariable Long playlistId) {
+        Playlist playlist =
+                playlistLibrary.findPlaylistById(
+                        playlistId);
+
+        if (playlist == null) {
+            return null;
+        }
+
+        return servicePlanLibrary
+                .completePlaylistAsService(
+                        playlist);
+    }
+
     @DeleteMapping("/service-plans/{servicePlanId}")
     public boolean deleteServicePlan(
             @PathVariable Long servicePlanId) {
         return servicePlanLibrary.deleteServicePlan(
                 servicePlanId);
+    }
+
+    @DeleteMapping(
+            "/service-plans/history/{servicePlanId}")
+    public boolean deleteCompletedServiceHistory(
+            @PathVariable Long servicePlanId) {
+        return servicePlanLibrary
+                .deleteCompletedServiceHistory(
+                        servicePlanId);
     }
 
     @PostMapping("/service-plans/{servicePlanId}/songs/{songId}")

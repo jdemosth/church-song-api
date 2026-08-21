@@ -5,8 +5,11 @@ import java.util.List;
 public class ServicePlanRequest {
 
     private String serviceName;
+    private String serviceType;
     private String serviceDate;
     private String serviceTime;
+    private String theme;
+    private Long sourcePlaylistId;
     private List<Integer> songIds;
 
     public String getServiceName() {
@@ -15,6 +18,14 @@ public class ServicePlanRequest {
 
     public void setServiceName(String serviceName) {
         this.serviceName = serviceName;
+    }
+
+    public String getServiceType() {
+        return serviceType;
+    }
+
+    public void setServiceType(String serviceType) {
+        this.serviceType = serviceType;
     }
 
     public String getServiceDate() {
@@ -31,6 +42,22 @@ public class ServicePlanRequest {
 
     public void setServiceTime(String serviceTime) {
         this.serviceTime = serviceTime;
+    }
+
+    public String getTheme() {
+        return theme;
+    }
+
+    public void setTheme(String theme) {
+        this.theme = theme;
+    }
+
+    public Long getSourcePlaylistId() {
+        return sourcePlaylistId;
+    }
+
+    public void setSourcePlaylistId(Long sourcePlaylistId) {
+        this.sourcePlaylistId = sourcePlaylistId;
     }
 
     public List<Integer> getSongIds() {
