@@ -20,6 +20,8 @@ public class Song {
     private String author;
     private String lyrics;
     private String sourceUrl;
+    private String sectionStructure;
+    private Boolean sectionsConfirmed;
 
     @Enumerated(EnumType.STRING)
     private SongType songType;
@@ -118,6 +120,14 @@ public class Song {
         return lyrics;
     }
 
+    public String getSectionStructure() {
+        return sectionStructure;
+    }
+
+    public boolean isSectionsConfirmed() {
+        return Boolean.TRUE.equals(sectionsConfirmed);
+    }
+
     @JsonIgnore
     public String getSourceUrl() {
         return sourceUrl;
@@ -165,6 +175,19 @@ public class Song {
         }
 
         this.sourceUrl = sourceUrl;
+    }
+
+    public void setSectionStructure(String sectionStructure) {
+        if (sectionStructure == null || sectionStructure.trim().isEmpty()) {
+            this.sectionStructure = null;
+            return;
+        }
+
+        this.sectionStructure = sectionStructure.trim();
+    }
+
+    public void setSectionsConfirmed(Boolean sectionsConfirmed) {
+        this.sectionsConfirmed = Boolean.TRUE.equals(sectionsConfirmed);
     }
 
     public void setTitle(String title) {

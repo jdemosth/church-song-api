@@ -9,6 +9,8 @@ public class SongRequest {
     private String title;
     private String author;
     private String lyrics;
+    private String sectionStructure;
+    private Boolean sectionsConfirmed;
     private SongType songType;
     private SongLanguage language;
 
@@ -21,6 +23,8 @@ public class SongRequest {
             String title,
             String author,
             String lyrics,
+            String sectionStructure,
+            Boolean sectionsConfirmed,
             SongType songType,
             SongLanguage language) {
 
@@ -28,6 +32,8 @@ public class SongRequest {
         this.title = title;
         this.author = author;
         this.lyrics = lyrics;
+        this.sectionStructure = sectionStructure;
+        this.sectionsConfirmed = sectionsConfirmed;
         this.songType = songType;
         this.language = language;
     }
@@ -42,6 +48,8 @@ public class SongRequest {
                 title,
                 author,
                 lyrics,
+                null,
+                false,
                 songType,
                 SongLanguage.UNKNOWN
         );
@@ -77,6 +85,26 @@ public class SongRequest {
 
     public void setLyrics(String lyrics) {
         this.lyrics = lyrics;
+    }
+
+    public String getSectionStructure() {
+        return sectionStructure;
+    }
+
+    public void setSectionStructure(String sectionStructure) {
+        this.sectionStructure = sectionStructure;
+    }
+
+    public boolean isSectionsConfirmed() {
+        return Boolean.TRUE.equals(sectionsConfirmed);
+    }
+
+    public Boolean getRawSectionsConfirmed() {
+        return sectionsConfirmed;
+    }
+
+    public void setSectionsConfirmed(Boolean sectionsConfirmed) {
+        this.sectionsConfirmed = sectionsConfirmed;
     }
 
     public SongType getSongType() {
